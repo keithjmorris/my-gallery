@@ -7,11 +7,11 @@ A personal art gallery web app. Each person signs in and builds their own privat
 | File | What it is |
 |---|---|
 | `index.html` | The whole app |
-| `firestore.rules` | Security rules for the database (paste into Firebase) |
+| `firestore.rules` | Security rules for the database, including sharing (paste into Firebase) |
 | `storage.rules` | Security rules for photo storage (paste into Firebase) |
 | `manifest.json`, `icon-512.png` | Home Screen name and icon |
 
-**Try it first:** until you paste in your Firebase settings, the app runs in *demo mode* with sample artists and nothing is saved. Open the folder in VS Code and use the **Live Server** extension (right-click `index.html` → *Open with Live Server*). Double-clicking the file won't work, because browsers block this kind of app from `file://` addresses.
+**Try it first:** until you paste in your Firebase settings, the app runs in *demo mode* with sample artists and nothing is saved. Demo mode includes a sample gallery shared with you by an invented "Sam Carter". Open the folder in VS Code and use the **Live Server** extension (right-click `index.html` → *Open with Live Server*). Double-clicking the file won't work, because browsers block this kind of app from `file://` addresses.
 
 ---
 
@@ -82,8 +82,47 @@ From now on, every push to GitHub updates the live site automatically.
   - Database: `users/{yourId}/artists/…` and `users/{yourId}/artworks/…`
   - Storage: `users/{yourId}/artworks/{artworkId}/…jpg`
 - **Offline:** artist and artwork details are cached on the phone, so the lists open instantly and still work with a poor signal.
+- **In my collection / Seen elsewhere:** every artwork records which it is (the `ownership` field: `mine` or `seen`). Artworks added before this existed show a one-tap question on their page, and the Gallery's **To sort** filter lists them until they're all done.
 - **Deleting** an artwork deletes its photos from Storage too. Deleting an artist deletes all of their artworks.
 
-## Adding sharing later
+## Sharing
 
-Because each person's gallery already sits under its own `users/{id}` folder, sharing is an add-on rather than a rebuild. The plan is: an owner turns on a share link, the app stores a share setting, the rules allow read-only access to galleries marked as shared, and a read-only viewing mode opens from that link. No existing data needs to move.
+Share your gallery with one person at a time, read-only.
+
+1. Tap the **Share** icon (top right of Artists or Gallery), check your name, and choose what they can see: **Artworks I own**, **Artworks I've seen elsewhere**, or **Everything**.
+2. Tap **Create invitation**. A QR code appears. They point their phone's camera at it, or you tap **Send invitation…** to use AirDrop, Messages, WhatsApp and so on.
+3. They open it, sign in (or create a free account), and tap **Accept**. Your gallery then appears in their app under **Shared with me**.
+
+**The rules it follows**
+- Each invitation works **once**, for **one person**, and expires after 24 hours. If it's forwarded, it won't work for anyone else.
+- People you share with can look but never change anything. They see what you add as you add it.
+- **Account → People who can see your gallery** lists everyone with access. You can change what each person sees, or remove them, and it takes effect straight away.
+- They can't pass access on. They could still take screenshots or show someone their phone, which no app can prevent.
+- Artist names and biographies are readable by anyone you share with, even for artists whose artworks they can't see. The app hides those artists, but the details aren't secret from a determined, technically minded viewer.
+
+**Data layout for sharing**
+- `invites/{code}`: one-time invitations
+- `users/{you}/shares/{theirId}`: who can see your gallery, and what
+- `users/{them}/sharedWithMe/{yourId}`: their list of galleries shared with them
+- `users/{you}` (the document itself): your display name
+
+### Updating an existing project to the sharing version
+
+1. Replace `index.html`, keeping your own `FIREBASE_CONFIG` block.
+2. In Firebase, go to **Firestore Database → Rules**, paste in the new `firestore.rules`, and click **Publish**. `storage.rules` hasn't changed.
+3. Push to GitHub.
+
+### Checking the security rules (about 10 minutes)
+
+Use two accounts, for example your own and a second email address, in two different browsers (or one private window).
+
+| Try this | Expected |
+|---|---|
+| A (you) creates an invitation; B opens it and accepts | B sees A's gallery under "Shared with me" |
+| C (a third account) opens the same invitation | "Already used" |
+| A changes B to "Seen elsewhere" | B sees only those artworks |
+| A removes B | B's view changes to "No longer shared" |
+| B, while viewing A's gallery | No Edit, Add or Delete buttons anywhere |
+| Wait for an invitation to pass its expiry time, then open it | "This invitation has expired" |
+
+If any step shows "Missing or insufficient permissions", the rules probably weren't published. Check the Rules tab says it was published just now.

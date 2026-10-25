@@ -1,13 +1,86 @@
 rules_version = '2';
 
-// Each person can read and write only their own gallery:
-//   users/{uid}/artists/...   and   users/{uid}/artworks/...
-// (Sharing will be added later by allowing read access to galleries
-//  the owner has chosen to share.)
+// My Gallery — database security rules
+//
+// • Everything under users/{uid} belongs to that person (read and write).
+// • Sharing: an owner creates a one-time invitation in invites/{code}.
+//   The person who accepts it "claims" it, which creates an access record at
+//   users/{owner}/shares/{viewer}. That record is the only thing that lets
+//   someone else read the owner's gallery, and only read, never write.
+// • An invitation can be claimed once, by one person, before it expires.
+//   A claimed invitation cannot be reused, so forwarding it does nothing.
+// • The owner can change what a viewer sees, or remove them, at any time.
+
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    function signedIn() { return request.auth != null; }
+    function isMe(uid) { return signedIn() && request.auth.uid == uid; }
+    function sharePath(owner) {
+      return /databases/$(database)/documents/users/$(owner)/shares/$(request.auth.uid);
+    }
+    function sharedWithMe(owner) { return signedIn() && exists(sharePath(owner)); }
+    // 'both' = whole gallery; 'mine' / 'seen' = only artworks with that ownership
+    function scopeAllows(owner, data) {
+      let scope = get(sharePath(owner)).data.scope;
+      return scope == 'both' || data.ownership == scope;
+    }
+
+    // Your own gallery, profile, access list and "shared with me" list
     match /users/{uid}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if isMe(uid);
+    }
+
+    // People you have shared with can read (never write) your gallery
+    match /users/{owner}/artists/{id} {
+      allow read: if sharedWithMe(owner);
+    }
+    match /users/{owner}/artworks/{id} {
+      allow read: if sharedWithMe(owner) && scopeAllows(owner, resource.data);
+    }
+
+    // Access records. The viewer creates theirs only while claiming a valid
+    // invitation in the same write; they can also remove it (leave).
+    // The owner can change or delete it (covered by the rule above).
+    match /users/{owner}/shares/{viewer} {
+      allow read, delete: if isMe(viewer);
+      allow create, update: if isMe(viewer) && viewer != owner
+                            && acceptingInvite(owner, viewer, request.resource.data);
+    }
+
+    function acceptingInvite(owner, viewer, data) {
+      let path = /databases/$(database)/documents/invites/$(data.invite);
+      let before = get(path).data;
+      let after = getAfter(path).data;
+      return data.keys().hasOnly(['viewerUid', 'viewerEmail', 'scope', 'invite', 'createdAt'])
+        && data.viewerUid == viewer
+        && before.claimedBy == null
+        && after.claimedBy == viewer
+        && after.owner == owner
+        && data.scope == after.scope;
+    }
+
+    // One-time invitations
+    match /invites/{code} {
+      // anyone signed in who has the (long, random) code can look at it
+      allow get: if signedIn();
+      // owners can list their own invitations
+      allow list: if signedIn() && resource.data.owner == request.auth.uid;
+      allow create: if signedIn()
+        && code.size() >= 20
+        && request.resource.data.owner == request.auth.uid
+        && request.resource.data.claimedBy == null
+        && request.resource.data.scope in ['mine', 'seen', 'both']
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt < request.time + duration.value(8, 'd');
+      // claiming: only once, only before it expires, never by the owner
+      allow update: if signedIn()
+        && resource.data.claimedBy == null
+        && resource.data.expiresAt > request.time
+        && resource.data.owner != request.auth.uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['claimedBy', 'claimedAt'])
+        && request.resource.data.claimedBy == request.auth.uid;
+      allow delete: if signedIn() && resource.data.owner == request.auth.uid;
     }
   }
 }
