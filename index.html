@@ -256,6 +256,18 @@ main.flush { padding-left: 0; padding-right: 0; }
 .toast { position: fixed; left: 50%; bottom: calc(var(--sb) + 90px); transform: translate(-50%, 20px); opacity: 0; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 20px; font-size: 14px; z-index: 100; transition: .25s; pointer-events: none; max-width: 90vw; text-align: center; }
 .toast.show { opacity: 1; transform: translate(-50%, 0); }
 .pswp { --pswp-bg: #0b0b0a; }
+.pswp__caption { position: absolute; left: 0; right: 0; bottom: 0; padding: 28px 16px calc(var(--sb) + 16px); text-align: center; color: #eee; font: 14px/1.4 var(--sans); background: linear-gradient(transparent, rgba(0,0,0,.65)); pointer-events: none; }
+.pswp__caption b { font-family: var(--serif); font-size: 19px; font-weight: 600; display: block; }
+.pswp__caption span { opacity: .75; }
+.in-next { animation: inNext .3s ease-out; }
+.in-prev { animation: inPrev .3s ease-out; }
+@keyframes inNext { from { transform: translateX(14%); opacity: 0; } }
+@keyframes inPrev { from { transform: translateX(-14%); opacity: 0; } }
+.stage-nav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 44px; border-radius: 50%; background: rgba(0,0,0,.45); color: #fff; display: none; place-items: center; z-index: 2; }
+.stage-nav svg { width: 24px; height: 24px; }
+.stage-nav.l { left: 10px; } .stage-nav.r { right: 10px; }
+@media (hover: hover) and (pointer: fine) { .stage-nav { display: grid; opacity: 0; transition: opacity .2s; } .stage-wrap:hover .stage-nav { opacity: 1; } }
+.seq-pos { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 </style>
 </head>
 <body>
@@ -295,6 +307,7 @@ const S = {
   filter: "all",
   own: "all",            // gallery filter: all | mine | seen | unset
   justSorted: null,
+  navDir: 0, startView: null, keyMove: null,
   draft: null,           // artwork being edited
 };
 
@@ -527,6 +540,7 @@ function parse() {
 }
 
 function render() {
+  S.keyMove = null;
   if (lastHash) scrollMem[lastHash] = window.scrollY;
   const r = parse();
   // leaving the artwork editor without saving → tidy up uploads
@@ -640,13 +654,22 @@ function viewArtwork(id) {
   const prev = sib[pos - 1], next = sib[pos + 1];
   const ratio = imgs.length ? Math.max(...imgs.map(i => (i.h || 1) / (i.w || 1))) : 1;
   const slideH = `min(72svh, ${(ratio * 100).toFixed(1)}cqw)`;
+  // The sequence that swiping moves through: the Gallery (with its filters) if we came from there, otherwise this artist's works
+  const fromGallery = stack.length > 1 && (stack[stack.length - 2] || "").startsWith("#/gallery");
+  let seq = fromGallery ? galleryWorks() : sib;
+  if (!seq.some(x => x.id === id)) seq = sib;
+  const seqPos = seq.findIndex(x => x.id === id);
+  const canStep = seq.length > 1;
+  const anim = S.navDir > 0 ? "in-next" : S.navDir < 0 ? "in-prev" : "";
+  const navBtns = canStep ? `<button class="stage-nav l" data-step="-1" aria-label="Previous">${I.back}</button><button class="stage-nav r" data-step="1" aria-label="Next">${I.chev}</button>` : "";
+  const hint = `Tap to zoom${canStep ? " · swipe for next artwork" : imgs.length > 1 ? " · swipe for more views" : ""}`;
 
   const stage = imgs.length
-    ? `<div class="stage-wrap"><div class="slides" id="slides">${imgs.map((im, i) =>
+    ? `<div class="stage-wrap">${navBtns}<div class="slides ${anim}" id="slides">${imgs.map((im, i) =>
         `<figure class="slide" data-i="${i}" style="height:${slideH}"><img src="${esc(im.url)}" alt="${esc(w.title || "")}${imgs.length > 1 ? `, view ${i + 1}` : ""}" ${i ? 'loading="lazy"' : ""} width="${im.w || ""}" height="${im.h || ""}"></figure>`).join("")}</div></div>
        <div class="stage-ui">${imgs.length > 1 ? `<div class="dots" id="dots">${imgs.map((_, i) => `<i class="${i ? "" : "on"}"></i>`).join("")}</div>` : ""}
-       <span class="zoom-hint">${I.zoom}Tap to zoom${imgs.length > 1 ? " · swipe for more views" : ""}</span></div>`
-    : `<div class="stage-wrap"><div class="stage-empty">No photos yet.<br><br><a class="btn small" href="#/artwork/${id}/edit">${I.camera} Add photos</a></div></div>`;
+       <span class="zoom-hint">${I.zoom}${hint}</span>${fromGallery && canStep ? `<span class="seq-pos">${seqPos + 1} / ${seq.length}</span>` : ""}</div>`
+    : `<div class="stage-wrap">${navBtns}<div class="stage-empty ${anim}">No photos yet.<br><br><a class="btn small" href="#/artwork/${id}/edit">${I.camera} Add photos</a></div></div>`;
 
   const own = ownOf(w);
   const facts = [["Date", w.year], ["Medium", w.medium], ["Size", w.dimensions], [whereLabel(own), w.location]].filter(f => f[1]);
@@ -662,14 +685,13 @@ function viewArtwork(id) {
       <div class="pn">${prev ? `<a href="#/artwork/${prev.id}" data-replace class="prev"><span>‹ Previous</span><b>${esc(prev.title || "Untitled")}</b></a>` : `<span class="none"></span>`}
         ${next ? `<a href="#/artwork/${next.id}" data-replace class="next"><span>Next ›</span><b>${esc(next.title || "Untitled")}</b></a>` : `<span class="none"></span>`}</div>
     </section>` : "";
-  const fromGallery = stack.length > 1 && (stack[stack.length - 2] || "").startsWith("#/gallery");
 
   return {
     title: "", mainClass: "flush",
     left: fromGallery ? backBtn("Gallery", "#/gallery") : backBtn(a.name, w.artistId ? `#/artist/${w.artistId}` : "#/artists"),
     right: `<a class="ibtn" href="#/artwork/${id}/edit">Edit</a>`,
     body: `${stage}
-      <section class="aw-info">${own !== "unset" ? `<p class="own-tag ${own}">${OWN[own]}</p>` : ""}<h2 class="display">${esc(w.title || "Untitled")}</h2>
+      <section class="aw-info ${anim}">${own !== "unset" ? `<p class="own-tag ${own}">${OWN[own]}</p>` : ""}<h2 class="display">${esc(w.title || "Untitled")}</h2>
         <p class="aw-artist"><a href="#/artist/${w.artistId}">${esc(a.name)}</a>${artistMeta(a) ? ` <span class="muted">(${esc(artistMeta(a))})</span>` : ""}</p>
         ${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` : ""}
         ${w.notes ? `<p class="notes">${esc(w.notes)}</p>` : ""}
@@ -686,20 +708,60 @@ function viewArtwork(id) {
         try { await store.save("artworks", { id, ownership: b.dataset.own }, false); }
         catch (err) { console.error(err); toast("Couldn't save — " + (err.code || err.message)); S.justSorted = null; render(); }
       });
+      S.navDir = 0;
       const slides = document.getElementById("slides");
+      const wrap = document.querySelector(".stage-wrap");
       const strip = document.getElementById("strip");
       if (strip) { const on = strip.querySelector(".on"); on && (strip.scrollLeft = on.offsetLeft - strip.clientWidth / 2 + 38); }
+      const n = imgs.length;
+      const view = () => slides ? Math.round(slides.scrollLeft / slides.clientWidth) : 0;
+      const setView = (i, smooth = true) => slides && slides.scrollTo({ left: i * slides.clientWidth, behavior: smooth ? "smooth" : "auto" });
+      // move to the next/previous artwork in the sequence, wrapping round at the ends
+      const stepArt = dir => {
+        if (!canStep) return;
+        const nx = seq[(seqPos + dir + seq.length) % seq.length];
+        S.navDir = dir; S.startView = dir < 0 ? "last" : 0;
+        go(`#/artwork/${nx.id}`, { replace: true });
+      };
+      // next view of this artwork, or on to the next artwork after its last view
+      const move = dir => { const v = view(); if (dir > 0 && v < n - 1) setView(v + 1); else if (dir < 0 && v > 0) setView(v - 1); else stepArt(dir); };
+      S.keyMove = move;
+      if (slides && S.startView !== null) setView(S.startView === "last" ? n - 1 : S.startView, false);
+      S.startView = null;
+
+      // swiping past the last (or first) view goes to the next (or previous) artwork
+      let sx = null, sy = 0, atS = false, atE = false;
+      wrap.addEventListener("touchstart", e => {
+        if (e.touches.length !== 1) { sx = null; return; }
+        sx = e.touches[0].clientX; sy = e.touches[0].clientY;
+        const v = view(); atS = v <= 0; atE = v >= n - 1;
+      }, { passive: true });
+      wrap.addEventListener("touchend", e => {
+        if (sx === null) return;
+        const t = e.changedTouches[0], dx = t.clientX - sx, dy = t.clientY - sy; sx = null;
+        if (Math.abs(dx) < 50 || Math.abs(dx) < Math.abs(dy) * 1.5) return;
+        if (dx < 0 && atE) stepArt(1); else if (dx > 0 && atS) stepArt(-1);
+      }, { passive: true });
+      wrap.addEventListener("click", e => { const b = e.target.closest("[data-step]"); if (b) move(+b.dataset.step); });
+
       if (!slides) return;
       const dots = document.querySelectorAll("#dots i");
-      const cur = () => Math.round(slides.scrollLeft / slides.clientWidth);
-      slides.addEventListener("scroll", () => { const i = cur(); dots.forEach((d, k) => d.classList.toggle("on", k === i)); }, { passive: true });
+      const dotsSync = () => { const i = view(); dots.forEach((d, k) => d.classList.toggle("on", k === i)); };
+      slides.addEventListener("scroll", dotsSync, { passive: true }); dotsSync();
       slides.addEventListener("click", e => {
         const f = e.target.closest(".slide"); if (!f) return;
-        openZoom(imgs, +f.dataset.i, i => { slides.scrollLeft = i * slides.clientWidth; });
+        openZoom(seq, id, +f.dataset.i, (artId, k) => {
+          if (artId === id) setView(k, false);
+          else { S.startView = k; go(`#/artwork/${artId}`, { replace: true }); }
+        });
       });
     },
   };
 }
+document.addEventListener("keydown", e => {
+  if (!S.keyMove || document.querySelector(".pswp--open") || /INPUT|TEXTAREA|SELECT/.test((document.activeElement || {}).tagName)) return;
+  if (e.key === "ArrowRight") { e.preventDefault(); S.keyMove(1); } else if (e.key === "ArrowLeft") { e.preventDefault(); S.keyMove(-1); }
+});
 // prev/next & strip links replace the history entry, so Back returns to the artist (or gallery)
 document.addEventListener("click", e => {
   const a = e.target.closest("a[data-replace]");
@@ -707,17 +769,35 @@ document.addEventListener("click", e => {
 });
 
 let PhotoSwipe;
-async function openZoom(imgs, index, onChange) {
+async function openZoom(seq, curId, curView, onClose) {
   try {
     PhotoSwipe ||= (await import("https://cdn.jsdelivr.net/npm/photoswipe@5.4.4/dist/photoswipe.esm.min.js")).default;
   } catch { toast("Couldn't load the zoom viewer — check your connection"); return; }
-  const pswp = new PhotoSwipe({
-    dataSource: imgs.map(im => ({ src: im.url, msrc: im.thumbUrl || im.url, width: im.w || 1600, height: im.h || 1200 })),
-    index, bgOpacity: 1, maxZoomLevel: 6, secondaryZoomLevel: 2.5, showHideAnimationType: "fade",
-    wheelToZoom: true, loop: false, closeTitle: "Close", zoomTitle: "Zoom",
+  // every view of every artwork in the sequence, so swiping carries on to the next artwork
+  const items = []; let start = 0;
+  seq.forEach(w => {
+    const a = S.artists.get(w.artistId);
+    (w.images || []).forEach((im, k) => {
+      if (w.id === curId && k === curView) start = items.length;
+      items.push({ src: im.url, msrc: im.thumbUrl || im.url, width: im.w || 1600, height: im.h || 1200, artId: w.id, k,
+        cap: `<b>${esc(w.title || "Untitled")}</b><span>${esc(a ? a.name : "")}${w.year ? ", " + esc(w.year) : ""}${(w.images || []).length > 1 ? ` · view ${k + 1} of ${w.images.length}` : ""}</span>` });
+    });
   });
-  pswp.on("change", () => onChange && onChange(pswp.currIndex));
+  if (!items.length) return;
+  const pswp = new PhotoSwipe({
+    dataSource: items, index: start, bgOpacity: 1, maxZoomLevel: 6, secondaryZoomLevel: 2.5, showHideAnimationType: "fade",
+    wheelToZoom: true, loop: seq.length > 1, closeTitle: "Close", zoomTitle: "Zoom",
+  });
+  pswp.on("uiRegister", () => pswp.ui.registerElement({
+    name: "caption", order: 9, isButton: false, appendTo: "root", html: "",
+    onInit: (el, p) => { const upd = () => { const it = items[p.currIndex]; el.innerHTML = it ? it.cap : ""; }; p.on("change", upd); upd(); },
+  }));
+  pswp.on("close", () => { const it = items[pswp.currIndex]; it && onClose && onClose(it.artId, it.k); });
   pswp.init();
+}
+
+function galleryWorks() {
+  return allWorksSorted().filter(w => (S.own === "all" || ownOf(w) === S.own) && (S.filter === "all" || w.artistId === S.filter));
 }
 
 function viewGallery() {
@@ -726,7 +806,7 @@ function viewGallery() {
   const all = allWorksSorted();
   const n = { mine: 0, seen: 0, unset: 0 }; all.forEach(w => n[ownOf(w)]++);
   if (S.own === "unset" && !n.unset) S.own = "all";
-  const works = all.filter(w => (S.own === "all" || ownOf(w) === S.own) && (S.filter === "all" || w.artistId === S.filter));
+  const works = galleryWorks();
   const ownChips = `<div class="chips" id="own-chips">${[["all", "Everything", all.length], ["mine", "My collection", n.mine], ["seen", "Seen elsewhere", n.seen]]
       .concat(n.unset ? [["unset", "To sort", n.unset]] : [])
       .map(([k, label, c]) => `<button class="chip ${S.own === k ? "on" : ""}" data-o="${k}">${label}<span class="n">${c}</span></button>`).join("")}</div>`;
