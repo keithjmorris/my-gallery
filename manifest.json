@@ -1,0 +1,12 @@
+{
+  "name": "My Gallery",
+  "short_name": "Gallery",
+  "description": "A personal gallery of artists and artworks",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#121211",
+  "theme_color": "#121211",
+  "icons": [
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" }
+  ]
+}

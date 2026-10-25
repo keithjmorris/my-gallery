@@ -1,0 +1,16 @@
+rules_version = '2';
+
+// Each person can upload and delete images only in their own folder:
+//   users/{uid}/artworks/{artworkId}/{image}.jpg
+// Uploads must be images under 15 MB (the app shrinks photos to ~0.5 MB first).
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /users/{uid}/{allPaths=**} {
+      allow read: if request.auth != null && request.auth.uid == uid;
+      allow delete: if request.auth != null && request.auth.uid == uid;
+      allow create, update: if request.auth != null && request.auth.uid == uid
+                            && request.resource.size < 15 * 1024 * 1024
+                            && request.resource.contentType.matches('image/.*');
+    }
+  }
+}

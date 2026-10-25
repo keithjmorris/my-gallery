@@ -1,0 +1,952 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>My Gallery</title>
+<meta name="theme-color" content="#f4f2ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#121211" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="My Gallery">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-512.png">
+<link rel="icon" href="icon-512.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,500;0,600;1,500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/photoswipe@5.4.4/dist/photoswipe.css">
+<style>
+:root {
+  --bg: #f4f2ee; --surface: #ffffff; --ink: #1b1a17; --muted: #6e6a62; --line: #e3dfd7;
+  --accent: #8a5a2b; --accent-ink: #ffffff; --stage: #e8e5df; --danger: #a33a2a;
+  --bar: rgba(244,242,238,.86);
+  --serif: "Cormorant Garamond", Georgia, serif;
+  --sans: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --r: 12px;
+  --st: env(safe-area-inset-top); --sb: env(safe-area-inset-bottom);
+  color-scheme: light dark;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #121211; --surface: #1c1b19; --ink: #ece8e1; --muted: #9a958c; --line: #2d2b28;
+    --accent: #c99a5b; --accent-ink: #1b1a17; --stage: #0a0a09; --danger: #e0705e;
+    --bar: rgba(18,18,17,.86);
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #121211; --surface: #1c1b19; --ink: #ece8e1; --muted: #9a958c; --line: #2d2b28;
+  --accent: #c99a5b; --accent-ink: #1b1a17; --stage: #0a0a09; --danger: #e0705e;
+  --bar: rgba(18,18,17,.86);
+}
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+html, body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans); font-size: 16px; line-height: 1.5; }
+body { min-height: 100svh; -webkit-font-smoothing: antialiased; }
+a { color: inherit; text-decoration: none; }
+button { font: inherit; color: inherit; background: none; border: 0; padding: 0; cursor: pointer; }
+img { display: block; max-width: 100%; }
+[hidden] { display: none !important; }
+
+/* ---------- top bar ---------- */
+.bar { position: sticky; top: 0; z-index: 20; background: var(--bar); backdrop-filter: saturate(1.4) blur(14px); -webkit-backdrop-filter: saturate(1.4) blur(14px);
+  border-bottom: 1px solid var(--line); padding: calc(var(--st) + 6px) 8px 6px; display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; min-height: 52px; }
+.bar-l, .bar-r { display: flex; align-items: center; gap: 2px; }
+.bar-r { justify-content: flex-end; }
+.bar-t { margin: 0; font: 600 17px/1.2 var(--sans); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 56vw; }
+.ibtn { display: inline-flex; align-items: center; gap: 4px; min-height: 40px; min-width: 40px; padding: 0 8px; border-radius: 10px; color: var(--accent); font-weight: 500; font-size: 16px; }
+.ibtn:active { background: var(--line); }
+.ibtn svg { width: 22px; height: 22px; }
+.ibtn.back { padding-left: 2px; max-width: 46vw; }
+.ibtn.back span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ibtn.strong { font-weight: 600; }
+
+/* ---------- tabs ---------- */
+.tabs { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; justify-content: center; gap: 8px; background: var(--bar);
+  backdrop-filter: saturate(1.4) blur(14px); -webkit-backdrop-filter: saturate(1.4) blur(14px); border-top: 1px solid var(--line); padding: 6px 12px calc(var(--sb) + 6px); }
+.tabs a { flex: 0 1 160px; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 4px 0; font-size: 11px; font-weight: 500; color: var(--muted); border-radius: 10px; }
+.tabs a svg { width: 24px; height: 24px; }
+.tabs a.on { color: var(--accent); }
+body.has-tabs main { padding-bottom: calc(var(--sb) + 84px); }
+
+main { max-width: 860px; margin: 0 auto; padding: 0 16px 40px; }
+main.wide { max-width: 1240px; }
+main.flush { padding-left: 0; padding-right: 0; }
+
+/* ---------- typography ---------- */
+.display { font-family: var(--serif); font-weight: 600; letter-spacing: -.01em; line-height: 1.05; margin: 0; }
+.eyebrow { font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.muted { color: var(--muted); }
+.page-title { font-size: 40px; margin: 22px 0 4px; }
+
+/* ---------- artists list ---------- */
+.search { position: relative; margin: 12px 0 8px; }
+.search input { width: 100%; height: 40px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); padding: 0 12px 0 36px; font: inherit; font-size: 16px; }
+.search svg { position: absolute; left: 10px; top: 10px; width: 20px; height: 20px; color: var(--muted); }
+.list { list-style: none; margin: 0; padding: 0; }
+.row { display: flex; align-items: center; gap: 14px; padding: 12px 4px; border-bottom: 1px solid var(--line); }
+.row:active { background: var(--line); }
+.thumb { flex: none; width: 60px; height: 60px; border-radius: 8px; overflow: hidden; background: var(--stage); display: grid; place-items: center; }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.initials { font-family: var(--serif); font-size: 24px; font-weight: 600; color: var(--muted); }
+.row-main { flex: 1; min-width: 0; }
+.row-name { font-family: var(--serif); font-size: 22px; font-weight: 600; line-height: 1.15; }
+.row-meta { font-size: 13px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.count { font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 2px; }
+.count svg { width: 16px; height: 16px; opacity: .6; }
+
+/* ---------- empty / loading ---------- */
+.empty { text-align: center; padding: 64px 24px; }
+.empty .display { font-size: 32px; margin-bottom: 8px; }
+.empty p { color: var(--muted); margin: 0 auto 24px; max-width: 32ch; }
+.spin { width: 28px; height: 28px; border-radius: 50%; border: 3px solid var(--line); border-top-color: var(--accent); animation: sp 0.8s linear infinite; margin: 80px auto; }
+@keyframes sp { to { transform: rotate(360deg); } }
+
+/* ---------- buttons ---------- */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; padding: 0 20px; border-radius: 22px; background: var(--accent); color: var(--accent-ink); font-weight: 600; font-size: 15px; }
+.btn:active { opacity: .85; }
+.btn.ghost { background: transparent; color: var(--accent); border: 1px solid var(--line); }
+.btn.small { height: 34px; padding: 0 14px; font-size: 14px; border-radius: 17px; }
+.btn.danger { background: transparent; color: var(--danger); border: 1px solid var(--line); }
+.btn.block { width: 100%; }
+.btn[disabled] { opacity: .45; pointer-events: none; }
+.btn svg { width: 18px; height: 18px; }
+
+/* ---------- artist page ---------- */
+.artist-head { padding: 26px 0 8px; }
+.artist-head .display { font-size: 44px; }
+.artist-head .meta { margin: 6px 0 0; color: var(--muted); font-size: 15px; }
+.bio { margin: 14px 0 0; white-space: pre-line; font-size: 16px; }
+.section-h { display: flex; align-items: center; justify-content: space-between; margin: 26px 0 12px; }
+.grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+@media (min-width: 640px) { .grid { grid-template-columns: repeat(3, 1fr); } }
+.tile-img { aspect-ratio: 1; background: var(--stage); border-radius: 8px; overflow: hidden; display: grid; place-items: center; }
+.tile-img img { width: 100%; height: 100%; object-fit: cover; }
+.tile-img .noimg { color: var(--muted); font-size: 13px; }
+.tile-cap { padding: 6px 2px 0; font-size: 14px; line-height: 1.3; }
+.tile-cap b { display: block; font-weight: 500; }
+.tile-cap span { color: var(--muted); font-size: 13px; }
+.tile:active .tile-img { opacity: .8; }
+
+/* ---------- artwork page ---------- */
+.stage-wrap { container-type: inline-size; background: var(--stage); position: relative; }
+.slides { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; overscroll-behavior-x: contain; }
+.slides::-webkit-scrollbar { display: none; }
+.slide { flex: 0 0 100%; scroll-snap-align: center; display: grid; place-items: center; margin: 0; padding: 14px; cursor: zoom-in; }
+.slide img { width: 100%; height: 100%; object-fit: contain; }
+.stage-empty { padding: 60px 20px; text-align: center; color: var(--muted); }
+.stage-ui { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 0 12px; background: var(--stage); }
+.dots { display: flex; gap: 6px; }
+.dots i { width: 6px; height: 6px; border-radius: 50%; background: var(--muted); opacity: .35; transition: opacity .2s, transform .2s; }
+.dots i.on { opacity: 1; transform: scale(1.2); }
+.zoom-hint { font-size: 12px; color: var(--muted); display: inline-flex; align-items: center; gap: 4px; }
+.zoom-hint svg { width: 14px; height: 14px; }
+.aw-info { padding: 22px 16px 0; max-width: 860px; margin: 0 auto; }
+.aw-info .display { font-size: 38px; }
+.aw-artist { margin: 6px 0 0; font-size: 17px; }
+.aw-artist a { color: var(--accent); font-weight: 500; }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: 6px 18px; margin: 18px 0 0; font-size: 15px; }
+.facts dt { color: var(--muted); }
+.facts dd { margin: 0; }
+.notes { white-space: pre-line; margin: 16px 0 0; }
+.more { padding: 26px 16px 0; max-width: 860px; margin: 0 auto; }
+.more-h { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 10px; }
+.strip { display: flex; gap: 10px; overflow-x: auto; scroll-snap-type: x proximity; padding: 2px 2px 8px; scrollbar-width: none; }
+.strip::-webkit-scrollbar { display: none; }
+.strip a { flex: 0 0 76px; scroll-snap-align: start; }
+.strip .s-img { width: 76px; height: 76px; border-radius: 8px; overflow: hidden; background: var(--stage); border: 2px solid transparent; }
+.strip .s-img img { width: 100%; height: 100%; object-fit: cover; }
+.strip a.on .s-img { border-color: var(--accent); }
+.strip .s-cap { font-size: 11px; color: var(--muted); margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.strip a.on .s-cap { color: var(--ink); font-weight: 500; }
+.pn { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 8px; }
+.pn a { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; min-width: 0; background: var(--surface); }
+.pn a.next { text-align: right; }
+.pn a span { display: block; font-size: 12px; color: var(--muted); }
+.pn a b { display: block; font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pn .none { visibility: hidden; }
+.about { max-width: 860px; margin: 22px auto 0; padding: 0 16px; }
+.about details { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 12px 0; }
+.about summary { cursor: pointer; font-weight: 500; list-style: none; display: flex; justify-content: space-between; }
+.about summary::-webkit-details-marker { display: none; }
+.about summary::after { content: "+"; color: var(--muted); font-size: 20px; line-height: 1; }
+.about details[open] summary::after { content: "–"; }
+
+/* ---------- gallery ---------- */
+.chips { display: flex; gap: 8px; overflow-x: auto; padding: 12px 16px 10px; margin: 0 -16px; scrollbar-width: none; }
+.chips::-webkit-scrollbar { display: none; }
+.chip { flex: none; height: 32px; padding: 0 14px; border-radius: 16px; border: 1px solid var(--line); background: var(--surface); font-size: 14px; white-space: nowrap; }
+.chip.on { background: var(--ink); color: var(--bg); border-color: var(--ink); }
+.masonry { columns: 2; column-gap: 12px; }
+@media (min-width: 700px) { .masonry { columns: 3; column-gap: 16px; } }
+@media (min-width: 1050px) { .masonry { columns: 4; } }
+.m-item { display: block; break-inside: avoid; margin-bottom: 16px; }
+.m-item img { width: 100%; height: auto; border-radius: 6px; background: var(--stage); box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 6px 18px rgba(0,0,0,.08); }
+.m-item .noimg { aspect-ratio: 4/3; border-radius: 6px; background: var(--stage); display: grid; place-items: center; color: var(--muted); font-size: 13px; }
+.m-cap { padding: 6px 2px 0; font-size: 13px; line-height: 1.3; }
+.m-cap b { display: block; font-weight: 500; }
+.m-cap span { color: var(--muted); }
+
+/* ---------- forms ---------- */
+.form { padding: 18px 0 0; }
+.field { margin-bottom: 14px; }
+.field label { display: block; font-size: 13px; font-weight: 500; color: var(--muted); margin-bottom: 5px; }
+.field input, .field textarea, .field select { width: 100%; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--ink); font: inherit; font-size: 16px; padding: 10px 12px; }
+.field textarea { min-height: 96px; resize: vertical; }
+.field input:focus, .field textarea:focus, .field select:focus { outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent; }
+.two { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.group { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; margin-bottom: 18px; }
+.group h3 { margin: 0 0 12px; font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.imgs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (min-width: 640px) { .imgs { grid-template-columns: repeat(4, 1fr); } }
+.img-item { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; background: var(--stage); }
+.img-item img { width: 100%; height: 100%; object-fit: cover; }
+.img-item .x, .img-item .star { position: absolute; top: 4px; width: 28px; height: 28px; border-radius: 50%; background: rgba(0,0,0,.6); color: #fff; display: grid; place-items: center; }
+.img-item .x { right: 4px; }
+.img-item .star { left: 4px; }
+.img-item .x svg, .img-item .star svg { width: 16px; height: 16px; }
+.img-item .main-badge { position: absolute; left: 4px; bottom: 4px; font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; background: var(--accent); color: var(--accent-ink); padding: 2px 6px; border-radius: 4px; }
+.img-item .prog { position: absolute; inset: auto 0 0 0; height: 4px; background: rgba(0,0,0,.3); }
+.img-item .prog i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .2s; }
+.img-item.busy img { opacity: .5; }
+.add-img { aspect-ratio: 1; border: 1.5px dashed var(--line); border-radius: 8px; display: grid; place-items: center; text-align: center; color: var(--accent); font-size: 13px; font-weight: 500; cursor: pointer; padding: 6px; }
+.add-img svg { width: 26px; height: 26px; margin: 0 auto 2px; display: block; }
+.danger-zone { margin: 26px 0 0; text-align: center; }
+
+/* ---------- auth ---------- */
+.auth { max-width: 380px; margin: 0 auto; padding: calc(var(--st) + 10vh) 24px 40px; }
+.auth .display { font-size: 52px; text-align: center; }
+.auth .tag { text-align: center; color: var(--muted); margin: 6px 0 32px; }
+.auth .switch { text-align: center; margin-top: 18px; font-size: 15px; }
+.auth .switch button { color: var(--accent); font-weight: 500; }
+.err { color: var(--danger); font-size: 14px; min-height: 20px; margin: 4px 0 10px; }
+
+/* ---------- account ---------- */
+.stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0 22px; }
+.stat { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 12px; text-align: center; }
+.stat b { display: block; font-family: var(--serif); font-size: 30px; font-weight: 600; line-height: 1.1; }
+.stat span { font-size: 12px; color: var(--muted); }
+.tip { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r); padding: 14px; font-size: 14px; margin-bottom: 22px; }
+.tip b { display: block; margin-bottom: 4px; }
+
+/* ---------- misc ---------- */
+.demo-banner { background: var(--accent); color: var(--accent-ink); font-size: 12px; text-align: center; padding: 6px 12px; font-weight: 500; }
+.toast { position: fixed; left: 50%; bottom: calc(var(--sb) + 90px); transform: translate(-50%, 20px); opacity: 0; background: var(--ink); color: var(--bg); padding: 10px 16px; border-radius: 20px; font-size: 14px; z-index: 100; transition: .25s; pointer-events: none; max-width: 90vw; text-align: center; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+.pswp { --pswp-bg: #0b0b0a; }
+</style>
+</head>
+<body>
+<div id="app"><div class="spin"></div></div>
+<div class="toast" id="toast"></div>
+
+<script type="module">
+/* =====================================================================
+   1. YOUR FIREBASE SETTINGS
+   Paste the values from Firebase console → Project settings → Your apps.
+   While apiKey still says PASTE_HERE the app runs in DEMO MODE
+   (sample data, nothing is saved) so you can try it out.
+   These values are not secret: your data is protected by the
+   security rules in firestore.rules and storage.rules.
+   ===================================================================== */
+const FIREBASE_CONFIG = {
+   apiKey: "AIzaSyBDNgfyoMcJ_7-4_ZRKCmuCCnLS218ovEk",
+  authDomain: "my-gallery-4d3ec.firebaseapp.com",
+  projectId: "my-gallery-4d3ec",
+  storageBucket: "my-gallery-4d3ec.firebasestorage.app",
+  messagingSenderId: "291836193116",
+  appId: "1:291836193116:web:8503a7890968feb3d4f999"
+};
+const FIREBASE_VERSION = "13.1.0";
+
+/* Image sizes saved to the cloud (longest edge, in pixels) */
+const MAIN_EDGE = 2560, MAIN_QUALITY = 0.86;
+const THUMB_EDGE = 640, THUMB_QUALITY = 0.8;
+
+/* ===================================================================== */
+const DEMO = !FIREBASE_CONFIG.apiKey || FIREBASE_CONFIG.apiKey === "PASTE_HERE";
+const app = document.getElementById("app");
+
+const S = {
+  user: null, loaded: false,
+  artists: new Map(), artworks: new Map(),
+  filter: "all",
+  draft: null,           // artwork being edited
+};
+
+/* ---------- small helpers ---------- */
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const newId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Math.random()).slice(2) + Date.now()).replace(/-/g, "").slice(0, 20);
+const clean = o => Object.fromEntries(Object.entries(o).map(([k, v]) => [k, typeof v === "string" ? v.trim() : v]));
+function toast(msg, ms = 2600) {
+  const t = document.getElementById("toast");
+  t.textContent = msg; t.classList.add("show");
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove("show"), ms);
+}
+
+const I = {
+  back: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>',
+  plus: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  edit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
+  user: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21c1.5-4 4.5-6 8-6s6.5 2 8 6"/></svg>',
+  people: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>',
+  frames: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><rect x="3" y="3" width="8" height="10" rx="1"/><rect x="13" y="3" width="8" height="6" rx="1"/><rect x="3" y="15" width="8" height="6" rx="1"/><rect x="13" y="11" width="8" height="10" rx="1"/></svg>',
+  search: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>',
+  chev: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m9 18 6-6-6-6"/></svg>',
+  x: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg>',
+  star: '<svg viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9Z"/></svg>',
+  camera: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>',
+  zoom: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5M11 8v6M8 11h6"/></svg>',
+};
+
+/* ---------- sorting & lookups ---------- */
+function sortKey(a) {
+  const n = (a.sortName || "").trim() || (a.name || "").trim().split(/\s+/).pop() || "";
+  return (n + " " + (a.name || "")).toLowerCase();
+}
+const artistsSorted = () => [...S.artists.values()].sort((a, b) => sortKey(a).localeCompare(sortKey(b)));
+const yearNum = y => { const m = String(y || "").match(/\d{3,4}/); return m ? +m[0] : 99999; };
+function worksOf(artistId) {
+  return [...S.artworks.values()].filter(w => w.artistId === artistId)
+    .sort((a, b) => yearNum(a.year) - yearNum(b.year) || (a.title || "").localeCompare(b.title || ""));
+}
+function allWorksSorted() {
+  const order = new Map(artistsSorted().map((a, i) => [a.id, i]));
+  return [...S.artworks.values()].sort((a, b) =>
+    (order.get(a.artistId) ?? 1e9) - (order.get(b.artistId) ?? 1e9) ||
+    yearNum(a.year) - yearNum(b.year) || (a.title || "").localeCompare(b.title || ""));
+}
+const cover = w => (w && w.images && w.images[0]) || null;
+function artistCover(artistId) { for (const w of worksOf(artistId)) if (cover(w)) return cover(w); return null; }
+function lifeDates(a) {
+  if (a.born && a.died) return `${a.born}–${a.died}`;
+  if (a.born) return `b. ${a.born}`;
+  if (a.died) return `d. ${a.died}`;
+  return "";
+}
+const artistMeta = a => [lifeDates(a), a.nationality].filter(Boolean).join(" · ");
+const initials = name => (name || "?").split(/\s+/).filter(Boolean).map(s => s[0]).slice(0, 2).join("").toUpperCase();
+
+/* =====================================================================
+   2. DATA STORES  (Firebase for real use, in-memory for demo mode)
+   Firestore layout (ready for sharing later):
+     users/{uid}/artists/{artistId}
+     users/{uid}/artworks/{artworkId}   (artistId, title, …, images[])
+   Storage layout:
+     users/{uid}/artworks/{artworkId}/{imageId}.jpg  and  {imageId}_t.jpg
+   ===================================================================== */
+async function firebaseStore() {
+  const base = `https://www.gstatic.com/firebasejs/${FIREBASE_VERSION}/`;
+  const [{ initializeApp }, A, F, ST] = await Promise.all([
+    import(base + "firebase-app.js"), import(base + "firebase-auth.js"),
+    import(base + "firebase-firestore.js"), import(base + "firebase-storage.js"),
+  ]);
+  const fb = initializeApp(FIREBASE_CONFIG);
+  const auth = A.getAuth(fb);
+  let db;
+  try { db = F.initializeFirestore(fb, { localCache: F.persistentLocalCache({ tabManager: F.persistentMultipleTabManager() }) }); }
+  catch { db = F.getFirestore(fb); }
+  const storage = ST.getStorage(fb);
+  let unsubs = [];
+  const col = name => F.collection(db, "users", S.user.uid, name);
+  const docRef = (name, id) => F.doc(db, "users", S.user.uid, name, id);
+  return {
+    onAuth: cb => A.onAuthStateChanged(auth, u => cb(u ? { uid: u.uid, email: u.email } : null)),
+    signIn: (e, p) => A.signInWithEmailAndPassword(auth, e, p),
+    signUp: (e, p) => A.createUserWithEmailAndPassword(auth, e, p),
+    reset: e => A.sendPasswordResetEmail(auth, e),
+    signOut: () => A.signOut(auth),
+    subscribe(onData, onError) {
+      this.unsubscribe();
+      let got = { a: false, w: false };
+      const done = () => got.a && got.w && onData();
+      unsubs = [
+        F.onSnapshot(col("artists"), snap => { S.artists = new Map(snap.docs.map(d => [d.id, { id: d.id, ...d.data() }])); got.a = true; done(); }, onError),
+        F.onSnapshot(col("artworks"), snap => { S.artworks = new Map(snap.docs.map(d => [d.id, { id: d.id, ...d.data() }])); got.w = true; done(); }, onError),
+      ];
+    },
+    unsubscribe() { unsubs.forEach(u => u()); unsubs = []; },
+    save(kind, obj, isNew) {
+      const { id, ...data } = obj;
+      const extra = { updatedAt: F.serverTimestamp() };
+      if (isNew) extra.createdAt = F.serverTimestamp();
+      return F.setDoc(docRef(kind, id), { ...data, ...extra }, { merge: true });
+    },
+    remove: (kind, id) => F.deleteDoc(docRef(kind, id)),
+    upload(path, blob, onProgress) {
+      const r = ST.ref(storage, `users/${S.user.uid}/${path}`);
+      return new Promise((resolve, reject) => {
+        const task = ST.uploadBytesResumable(r, blob, { contentType: "image/jpeg", cacheControl: "public,max-age=31536000" });
+        task.on("state_changed", s => onProgress && onProgress(s.bytesTransferred / (s.totalBytes || 1)), reject,
+          async () => resolve({ path: r.fullPath, url: await ST.getDownloadURL(r) }));
+      });
+    },
+    deleteFile: path => path ? ST.deleteObject(ST.ref(storage, path)).catch(() => {}) : Promise.resolve(),
+  };
+}
+
+function demoStore() {
+  let notify = () => {};
+  return {
+    onAuth: cb => cb({ uid: "demo", email: "demo@example.com" }),
+    signIn: async () => {}, signUp: async () => {}, reset: async () => {},
+    signOut: async () => toast("Demo mode — there is no account to sign out of"),
+    async subscribe(onData) { notify = onData; await seedDemo(); onData(); },
+    unsubscribe() {},
+    async save(kind, obj) {
+      const map = kind === "artists" ? S.artists : S.artworks;
+      map.set(obj.id, { ...(map.get(obj.id) || {}), ...obj }); notify();
+    },
+    async remove(kind, id) { (kind === "artists" ? S.artists : S.artworks).delete(id); notify(); },
+    async upload(path, blob, onProgress) {
+      for (let p = 0; p <= 1; p += 0.25) { onProgress && onProgress(p); await new Promise(r => setTimeout(r, 60)); }
+      return { path, url: URL.createObjectURL(blob) };
+    },
+    deleteFile: async () => {},
+  };
+}
+
+/* Demo data: invented artists with generated "paintings" */
+async function seedDemo() {
+  const paint = (w, h, seed) => new Promise(res => {
+    const c = document.createElement("canvas"); c.width = w; c.height = h; const g = c.getContext("2d");
+    let s = seed; const rnd = () => (s = (s * 9301 + 49297) % 233280) / 233280;
+    const hue = Math.floor(rnd() * 360);
+    const grd = g.createLinearGradient(0, 0, w, h);
+    grd.addColorStop(0, `hsl(${hue},45%,${30 + rnd() * 30}%)`); grd.addColorStop(1, `hsl(${(hue + 60) % 360},40%,${20 + rnd() * 40}%)`);
+    g.fillStyle = grd; g.fillRect(0, 0, w, h);
+    for (let i = 0; i < 18; i++) {
+      g.fillStyle = `hsla(${(hue + rnd() * 120) % 360},${40 + rnd() * 40}%,${30 + rnd() * 50}%,${0.25 + rnd() * 0.5})`;
+      g.beginPath(); g.ellipse(rnd() * w, rnd() * h, 20 + rnd() * w / 3, 20 + rnd() * h / 4, rnd() * 3, 0, 7); g.fill();
+    }
+    g.strokeStyle = "rgba(255,255,255,.25)"; g.lineWidth = Math.max(w, h) / 200;
+    for (let i = 0; i < 6; i++) { g.beginPath(); g.moveTo(rnd() * w, rnd() * h); g.bezierCurveTo(rnd() * w, rnd() * h, rnd() * w, rnd() * h, rnd() * w, rnd() * h); g.stroke(); }
+    c.toBlob(b => res({ url: URL.createObjectURL(b), w, h }), "image/jpeg", 0.85);
+  });
+  const img = async (w, h, seed) => { const p = await paint(w, h, seed); return { id: newId(), url: p.url, thumbUrl: p.url, w, h, path: "", thumbPath: "" }; };
+  const artists = [
+    { id: "a1", name: "Eleanor Vance", born: "1952", nationality: "British", bio: "Sample artist for demo mode. Landscapes of the Peak District in oil, built up in heavy layers.\n\nEdit or delete me — nothing in demo mode is saved." },
+    { id: "a2", name: "Tomás Ribeira", born: "1938", died: "2011", nationality: "Portuguese", bio: "Sample artist. Abstract colour-field paintings." },
+    { id: "a3", name: "Mei Okafor", born: "1987", nationality: "Nigerian-British", bio: "Sample artist. Large-scale works on paper." },
+  ];
+  artists.forEach(a => S.artists.set(a.id, a));
+  const works = [
+    { artistId: "a1", title: "Stanage Edge, Evening", year: "1998", medium: "Oil on canvas", dimensions: "90 × 120 cm", location: "Private collection", images: [[1600, 1200, 3], [1200, 1500, 7]] },
+    { artistId: "a1", title: "Winter Light, Hathersage", year: "2004", medium: "Oil on board", dimensions: "40 × 50 cm", images: [[1500, 1200, 11]] },
+    { artistId: "a1", title: "Ladybower Study", year: "2012", medium: "Watercolour", images: [[1200, 1700, 19], [1700, 1200, 23], [1400, 1400, 29]] },
+    { artistId: "a2", title: "Composition in Ochre", year: "1974", medium: "Acrylic on canvas", dimensions: "150 × 150 cm", location: "Museu de Arte, Lisbon", images: [[1400, 1400, 31]] },
+    { artistId: "a2", title: "Tide", year: "1989", medium: "Oil on linen", images: [[2000, 1000, 37]] },
+    { artistId: "a3", title: "Harmattan I", year: "2019", medium: "Ink and gouache on paper", dimensions: "200 × 140 cm", notes: "Seen at the Millennium Gallery, Sheffield.", images: [[1100, 1600, 41], [1600, 1100, 43]] },
+  ];
+  for (const w of works) {
+    const images = []; for (const [a, b, s] of w.images) images.push(await img(a, b, s));
+    const id = newId(); S.artworks.set(id, { ...w, id, images });
+  }
+}
+
+let store;
+
+/* =====================================================================
+   3. IMAGE PROCESSING  (resize on the phone before uploading)
+   ===================================================================== */
+async function decodeImage(file) {
+  if ("createImageBitmap" in window) {
+    try { return await createImageBitmap(file, { imageOrientation: "from-image" }); } catch {}
+  }
+  return new Promise((res, rej) => {
+    const img = new Image(); img.onload = () => res(img); img.onerror = () => rej(new Error("Unreadable image"));
+    img.src = URL.createObjectURL(file);
+  });
+}
+function toJpeg(src, maxEdge, q) {
+  const sw = src.width || src.naturalWidth, sh = src.height || src.naturalHeight;
+  const k = Math.min(1, maxEdge / Math.max(sw, sh));
+  const w = Math.round(sw * k), h = Math.round(sh * k);
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  const g = c.getContext("2d"); g.imageSmoothingQuality = "high"; g.drawImage(src, 0, 0, w, h);
+  return new Promise((res, rej) => c.toBlob(b => b ? res({ blob: b, w, h }) : rej(new Error("Could not encode")), "image/jpeg", q));
+}
+
+/* =====================================================================
+   4. ROUTER & NAVIGATION
+   ===================================================================== */
+const stack = [];          // in-app history, so Back behaves sensibly
+const scrollMem = {};
+let replacing = false;
+function go(hash, { replace = false } = {}) {
+  if (hash === (location.hash || "#/")) return;
+  if (replace) { replacing = true; location.replace(hash); }
+  else location.hash = hash;
+}
+function back(fallback) {
+  if (stack.length > 1) history.back();
+  else go(fallback, { replace: true });
+}
+window.addEventListener("hashchange", () => {
+  const h = location.hash || "#/";
+  if (replacing) { stack[stack.length - 1] = h; replacing = false; }
+  else if (stack.length > 1 && stack[stack.length - 2] === h) stack.pop();
+  else stack.push(h);
+  render();
+});
+let lastHash = null;
+function parse() {
+  const h = (location.hash || "#/").slice(1);
+  const [path, qs] = h.split("?");
+  const parts = path.split("/").filter(Boolean);
+  return { parts, q: new URLSearchParams(qs || ""), hash: "#" + h };
+}
+
+function render() {
+  if (lastHash) scrollMem[lastHash] = window.scrollY;
+  const r = parse();
+  // leaving the artwork editor without saving → tidy up uploads
+  if (S.draft && !(r.parts[0] === "artwork" && (r.parts[2] === "edit" || r.parts[1] === "new"))) discardDraft();
+
+  if (!S.user) { lastHash = null; return renderAuth(); }
+  if (!S.loaded) { app.innerHTML = '<div class="spin"></div>'; return; }
+
+  const [a, b, c] = r.parts;
+  let v;
+  if (!a || a === "artists") v = viewArtists();
+  else if (a === "gallery") v = viewGallery();
+  else if (a === "account") v = viewAccount();
+  else if (a === "artist" && b === "new") v = viewArtistForm(null);
+  else if (a === "artist" && c === "edit") v = viewArtistForm(b);
+  else if (a === "artist") v = viewArtist(b);
+  else if (a === "artwork" && b === "new") v = viewArtworkForm(null, r.q.get("artist"));
+  else if (a === "artwork" && c === "edit") v = viewArtworkForm(b);
+  else if (a === "artwork") v = viewArtwork(b);
+  else v = viewArtists();
+  if (!v) return;  // a view redirected
+
+  document.body.classList.toggle("has-tabs", !!v.tab);
+  app.innerHTML =
+    (DEMO ? '<div class="demo-banner">Demo mode — sample data, nothing is saved. Add your Firebase settings to go live.</div>' : "") +
+    `<header class="bar"><div class="bar-l">${v.left || ""}</div><h1 class="bar-t">${esc(v.title || "")}</h1><div class="bar-r">${v.right || ""}</div></header>` +
+    `<main class="${v.mainClass || ""}">${v.body}</main>` +
+    (v.tab ? `<nav class="tabs">
+      <a href="#/artists" class="${v.tab === "artists" ? "on" : ""}">${I.people}<span>Artists</span></a>
+      <a href="#/gallery" class="${v.tab === "gallery" ? "on" : ""}">${I.frames}<span>Gallery</span></a></nav>` : "");
+  v.after && v.after();
+  const same = r.hash === lastHash;
+  window.scrollTo(0, same ? scrollMem[r.hash] || window.scrollY : (scrollMem[r.hash] || 0));
+  lastHash = r.hash;
+}
+// re-render when data changes, keeping scroll position and unsaved form input
+function dataChanged() {
+  S.loaded = true;
+  const p = parse().parts;
+  const editing = (p[0] === "artist" && (p[1] === "new" || p[2] === "edit")) || (p[0] === "artwork" && (p[1] === "new" || p[2] === "edit"));
+  if (editing && app.querySelector("form")) return;
+  const y = window.scrollY; render(); window.scrollTo(0, y);
+}
+
+const backBtn = (label, fallback) => `<button class="ibtn back" data-back="${esc(fallback)}">${I.back}<span>${esc(label)}</span></button>`;
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-back]");
+  if (b) { e.preventDefault(); back(b.dataset.back); }
+});
+
+/* =====================================================================
+   5. VIEWS
+   ===================================================================== */
+function viewArtists() {
+  const list = artistsSorted();
+  const right = `<a class="ibtn" href="#/account" aria-label="Account">${I.user}</a><a class="ibtn" href="#/artist/new" aria-label="Add artist">${I.plus}</a>`;
+  if (!list.length) return {
+    tab: "artists", title: "Artists", right,
+    body: `<div class="empty"><h2 class="display">Your gallery is empty</h2><p>Start by adding an artist, then add their artworks and photos.</p><a class="btn" href="#/artist/new">${I.plus} Add an artist</a></div>`,
+  };
+  const rows = list.map(a => {
+    const c = artistCover(a.id), n = worksOf(a.id).length;
+    return `<li data-s="${esc((a.name + " " + (a.nationality || "")).toLowerCase())}"><a class="row" href="#/artist/${a.id}">
+      <div class="thumb">${c ? `<img src="${esc(c.thumbUrl || c.url)}" alt="" loading="lazy">` : `<span class="initials">${esc(initials(a.name))}</span>`}</div>
+      <div class="row-main"><div class="row-name">${esc(a.name)}</div><div class="row-meta">${esc(artistMeta(a)) || "&nbsp;"}</div></div>
+      <div class="count">${n}${I.chev}</div></a></li>`;
+  }).join("");
+  return {
+    tab: "artists", title: "", right,
+    left: `<span class="eyebrow" style="padding-left:8px">${list.length} artist${list.length === 1 ? "" : "s"}</span>`,
+    body: `<h2 class="display page-title">Artists</h2>
+      ${list.length > 5 ? `<div class="search">${I.search}<input id="q" type="search" placeholder="Search artists" autocomplete="off"></div>` : ""}
+      <ul class="list" id="alist">${rows}</ul>`,
+    after() {
+      const q = document.getElementById("q");
+      q && q.addEventListener("input", () => {
+        const t = q.value.trim().toLowerCase();
+        document.querySelectorAll("#alist li").forEach(li => li.hidden = !!t && !li.dataset.s.includes(t));
+      });
+    },
+  };
+}
+
+function viewArtist(id) {
+  const a = S.artists.get(id);
+  if (!a) return notFound("Artist not found");
+  const works = worksOf(id);
+  const tiles = works.map(w => {
+    const c = cover(w);
+    return `<a class="tile" href="#/artwork/${w.id}"><div class="tile-img">${c ? `<img src="${esc(c.thumbUrl || c.url)}" alt="" loading="lazy">` : `<span class="noimg">No photo</span>`}</div>
+      <div class="tile-cap"><b>${esc(w.title || "Untitled")}</b><span>${esc(w.year || "")}</span></div></a>`;
+  }).join("");
+  return {
+    title: "", left: backBtn("Artists", "#/artists"),
+    right: `<a class="ibtn" href="#/artist/${id}/edit">Edit</a>`,
+    body: `<section class="artist-head"><h2 class="display">${esc(a.name)}</h2>
+        ${artistMeta(a) ? `<p class="meta">${esc(artistMeta(a))}</p>` : ""}
+        ${a.bio ? `<p class="bio">${esc(a.bio)}</p>` : ""}</section>
+      <div class="section-h"><span class="eyebrow">Artworks · ${works.length}</span><a class="btn small" href="#/artwork/new?artist=${id}">${I.plus} Add artwork</a></div>
+      ${works.length ? `<div class="grid">${tiles}</div>` : `<div class="empty" style="padding:30px 10px"><p>No artworks yet for ${esc(a.name)}.</p></div>`}`,
+  };
+}
+
+function viewArtwork(id) {
+  const w = S.artworks.get(id);
+  if (!w) return notFound("Artwork not found");
+  const a = S.artists.get(w.artistId) || { name: "Unknown artist" };
+  const imgs = w.images || [];
+  const sib = worksOf(w.artistId);
+  const pos = sib.findIndex(x => x.id === id);
+  const prev = sib[pos - 1], next = sib[pos + 1];
+  const ratio = imgs.length ? Math.max(...imgs.map(i => (i.h || 1) / (i.w || 1))) : 1;
+  const slideH = `min(72svh, ${(ratio * 100).toFixed(1)}cqw)`;
+
+  const stage = imgs.length
+    ? `<div class="stage-wrap"><div class="slides" id="slides">${imgs.map((im, i) =>
+        `<figure class="slide" data-i="${i}" style="height:${slideH}"><img src="${esc(im.url)}" alt="${esc(w.title || "")}${imgs.length > 1 ? `, view ${i + 1}` : ""}" ${i ? 'loading="lazy"' : ""} width="${im.w || ""}" height="${im.h || ""}"></figure>`).join("")}</div></div>
+       <div class="stage-ui">${imgs.length > 1 ? `<div class="dots" id="dots">${imgs.map((_, i) => `<i class="${i ? "" : "on"}"></i>`).join("")}</div>` : ""}
+       <span class="zoom-hint">${I.zoom}Tap to zoom${imgs.length > 1 ? " · swipe for more views" : ""}</span></div>`
+    : `<div class="stage-wrap"><div class="stage-empty">No photos yet.<br><br><a class="btn small" href="#/artwork/${id}/edit">${I.camera} Add photos</a></div></div>`;
+
+  const facts = [["Date", w.year], ["Medium", w.medium], ["Size", w.dimensions], ["Where", w.location]].filter(f => f[1]);
+  const strip = sib.length > 1 ? `<section class="more">
+      <div class="more-h"><span class="eyebrow">More by ${esc(a.name)}</span><span class="muted" style="font-size:13px">${pos + 1} of ${sib.length}</span></div>
+      <div class="strip" id="strip">${sib.map(x => { const c = cover(x); return `<a href="#/artwork/${x.id}" data-replace class="${x.id === id ? "on" : ""}">
+        <div class="s-img">${c ? `<img src="${esc(c.thumbUrl || c.url)}" alt="" loading="lazy">` : ""}</div><div class="s-cap">${esc(x.title || "Untitled")}</div></a>`; }).join("")}</div>
+      <div class="pn">${prev ? `<a href="#/artwork/${prev.id}" data-replace class="prev"><span>‹ Previous</span><b>${esc(prev.title || "Untitled")}</b></a>` : `<span class="none"></span>`}
+        ${next ? `<a href="#/artwork/${next.id}" data-replace class="next"><span>Next ›</span><b>${esc(next.title || "Untitled")}</b></a>` : `<span class="none"></span>`}</div>
+    </section>` : "";
+  const fromGallery = stack.length > 1 && (stack[stack.length - 2] || "").startsWith("#/gallery");
+
+  return {
+    title: "", mainClass: "flush",
+    left: fromGallery ? backBtn("Gallery", "#/gallery") : backBtn(a.name, w.artistId ? `#/artist/${w.artistId}` : "#/artists"),
+    right: `<a class="ibtn" href="#/artwork/${id}/edit">Edit</a>`,
+    body: `${stage}
+      <section class="aw-info"><h2 class="display">${esc(w.title || "Untitled")}</h2>
+        <p class="aw-artist"><a href="#/artist/${w.artistId}">${esc(a.name)}</a>${artistMeta(a) ? ` <span class="muted">(${esc(artistMeta(a))})</span>` : ""}</p>
+        ${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` : ""}
+        ${w.notes ? `<p class="notes">${esc(w.notes)}</p>` : ""}</section>
+      ${strip}
+      ${a.bio ? `<div class="about"><details><summary>About ${esc(a.name)}</summary><p class="bio">${esc(a.bio)}</p></details></div>` : ""}`,
+    after() {
+      const slides = document.getElementById("slides");
+      const strip = document.getElementById("strip");
+      if (strip) { const on = strip.querySelector(".on"); on && (strip.scrollLeft = on.offsetLeft - strip.clientWidth / 2 + 38); }
+      if (!slides) return;
+      const dots = document.querySelectorAll("#dots i");
+      const cur = () => Math.round(slides.scrollLeft / slides.clientWidth);
+      slides.addEventListener("scroll", () => { const i = cur(); dots.forEach((d, k) => d.classList.toggle("on", k === i)); }, { passive: true });
+      slides.addEventListener("click", e => {
+        const f = e.target.closest(".slide"); if (!f) return;
+        openZoom(imgs, +f.dataset.i, i => { slides.scrollLeft = i * slides.clientWidth; });
+      });
+    },
+  };
+}
+// prev/next & strip links replace the history entry, so Back returns to the artist (or gallery)
+document.addEventListener("click", e => {
+  const a = e.target.closest("a[data-replace]");
+  if (a) { e.preventDefault(); go(a.getAttribute("href"), { replace: true }); }
+});
+
+let PhotoSwipe;
+async function openZoom(imgs, index, onChange) {
+  try {
+    PhotoSwipe ||= (await import("https://cdn.jsdelivr.net/npm/photoswipe@5.4.4/dist/photoswipe.esm.min.js")).default;
+  } catch { toast("Couldn't load the zoom viewer — check your connection"); return; }
+  const pswp = new PhotoSwipe({
+    dataSource: imgs.map(im => ({ src: im.url, msrc: im.thumbUrl || im.url, width: im.w || 1600, height: im.h || 1200 })),
+    index, bgOpacity: 1, maxZoomLevel: 6, secondaryZoomLevel: 2.5, showHideAnimationType: "fade",
+    wheelToZoom: true, loop: false, closeTitle: "Close", zoomTitle: "Zoom",
+  });
+  pswp.on("change", () => onChange && onChange(pswp.currIndex));
+  pswp.init();
+}
+
+function viewGallery() {
+  const artists = artistsSorted().filter(a => worksOf(a.id).length);
+  if (S.filter !== "all" && !S.artists.has(S.filter)) S.filter = "all";
+  const works = allWorksSorted().filter(w => S.filter === "all" || w.artistId === S.filter);
+  const chips = `<div class="chips" id="chips"><button class="chip ${S.filter === "all" ? "on" : ""}" data-f="all">All</button>${artists.map(a =>
+    `<button class="chip ${S.filter === a.id ? "on" : ""}" data-f="${a.id}">${esc(a.name)}</button>`).join("")}</div>`;
+  const items = works.map(w => {
+    const c = cover(w), a = S.artists.get(w.artistId);
+    return `<a class="m-item" href="#/artwork/${w.id}">${c ? `<img src="${esc(c.thumbUrl || c.url)}" alt="" loading="lazy" width="${c.w || 4}" height="${c.h || 3}">` : `<div class="noimg">No photo</div>`}
+      <div class="m-cap"><b>${esc(w.title || "Untitled")}</b><span>${esc(a ? a.name : "")}${w.year ? ", " + esc(w.year) : ""}</span></div></a>`;
+  }).join("");
+  return {
+    tab: "gallery", title: "", mainClass: "wide",
+    left: `<span class="eyebrow" style="padding-left:8px">${S.artworks.size} artwork${S.artworks.size === 1 ? "" : "s"}</span>`,
+    right: `<a class="ibtn" href="#/account" aria-label="Account">${I.user}</a>`,
+    body: `<h2 class="display page-title">Gallery</h2>${S.artworks.size ? chips + `<div class="masonry">${items}</div>`
+      : `<div class="empty"><p>Artworks you add will appear here, all together.</p><a class="btn" href="#/artists">Go to Artists</a></div>`}`,
+    after() {
+      const ch = document.getElementById("chips");
+      ch && ch.addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (!b) return; S.filter = b.dataset.f; const x = ch.scrollLeft; render(); document.getElementById("chips").scrollLeft = x; });
+    },
+  };
+}
+
+function viewAccount() {
+  const nImg = [...S.artworks.values()].reduce((n, w) => n + (w.images || []).length, 0);
+  return {
+    title: "Account", left: backBtn("Back", "#/artists"),
+    body: `<div style="padding-top:18px"><p class="muted" style="margin:0">Signed in as</p><p style="margin:0;font-weight:600">${esc(S.user.email || "")}</p>
+      <div class="stats"><div class="stat"><b>${S.artists.size}</b><span>Artists</span></div><div class="stat"><b>${S.artworks.size}</b><span>Artworks</span></div><div class="stat"><b>${nImg}</b><span>Photos</span></div></div>
+      <div class="tip"><b>Put it on your Home Screen</b>In Safari, tap the Share button, then “Add to Home Screen”. It then opens full-screen like an app.</div>
+      <button class="btn ghost block" id="signout">Sign out</button></div>`,
+    after() { document.getElementById("signout").onclick = async () => { await store.signOut(); }; },
+  };
+}
+
+function notFound(msg) {
+  return { title: "", left: backBtn("Back", "#/artists"), body: `<div class="empty"><h2 class="display">${esc(msg)}</h2><p>It may have been deleted.</p><a class="btn" href="#/artists">Go to Artists</a></div>` };
+}
+
+/* ---------- artist form ---------- */
+function viewArtistForm(id) {
+  const a = id ? S.artists.get(id) : {};
+  if (id && !a) return notFound("Artist not found");
+  const f = (k, label, extra = "") => `<div class="field"><label for="f-${k}">${label}</label><input id="f-${k}" name="${k}" value="${esc(a[k] || "")}" ${extra}></div>`;
+  const nWorks = id ? worksOf(id).length : 0;
+  return {
+    title: id ? "Edit artist" : "New artist",
+    left: `<button class="ibtn" data-back="${id ? `#/artist/${id}` : "#/artists"}">Cancel</button>`,
+    right: `<button class="ibtn strong" form="af" type="submit">Save</button>`,
+    body: `<form id="af" class="form" autocomplete="off">
+      <div class="group">
+        ${f("name", "Name", 'required autocapitalize="words" placeholder="e.g. Barbara Hepworth"')}
+        <div class="two">${f("born", "Born", 'inputmode="numeric" placeholder="Year"')}${f("died", "Died", 'inputmode="numeric" placeholder="Year"')}</div>
+        ${f("nationality", "Nationality", 'autocapitalize="words"')}
+        ${f("sortName", "Sort under", 'autocapitalize="words" placeholder="Leave blank to sort by surname"')}
+        <p class="hint" style="margin-top:-8px">Useful for names like “van Gogh” (sort under “Gogh”) or single names.</p>
+      </div>
+      <div class="group"><div class="field" style="margin:0"><label for="f-bio">About the artist</label><textarea id="f-bio" name="bio" rows="6">${esc(a.bio || "")}</textarea></div></div>
+      <button class="btn block" type="submit">Save artist</button>
+      ${id ? `<div class="danger-zone"><button type="button" class="btn danger" id="del">Delete artist${nWorks ? ` and ${nWorks} artwork${nWorks === 1 ? "" : "s"}` : ""}</button></div>` : ""}
+    </form>`,
+    after() {
+      const form = document.getElementById("af");
+      if (!id) document.getElementById("f-name").focus();
+      form.addEventListener("submit", async e => {
+        e.preventDefault();
+        const d = clean(Object.fromEntries(new FormData(form)));
+        if (!d.name) { toast("Please enter a name"); return; }
+        const obj = { id: id || newId(), ...d };
+        try { const p = store.save("artists", obj, !id); go(`#/artist/${obj.id}`, { replace: true }); await p; }
+        catch (err) { console.error(err); toast("Couldn't save — " + (err.code || err.message)); }
+      });
+      const del = document.getElementById("del");
+      del && del.addEventListener("click", async () => {
+        if (!confirm(`Delete ${a.name}${nWorks ? ` and all ${nWorks} of their artworks and photos` : ""}? This can't be undone.`)) return;
+        try {
+          for (const w of worksOf(id)) await deleteArtwork(w);
+          await store.remove("artists", id);
+          toast("Artist deleted"); go("#/artists", { replace: true });
+        } catch (err) { console.error(err); toast("Couldn't delete — " + (err.code || err.message)); }
+      });
+    },
+  };
+}
+
+async function deleteArtwork(w) {
+  for (const im of w.images || []) { await store.deleteFile(im.path); await store.deleteFile(im.thumbPath); }
+  await store.remove("artworks", w.id);
+}
+
+/* ---------- artwork form ---------- */
+function viewArtworkForm(id, presetArtist) {
+  const w = id ? S.artworks.get(id) : null;
+  if (id && !w) return notFound("Artwork not found");
+  const artists = artistsSorted();
+  if (!artists.length) { go("#/artist/new", { replace: true }); return null; }
+  const draftId = id || (S.draft && S.draft.isNew ? S.draft.id : newId());
+  if (!S.draft || S.draft.id !== draftId) {
+    S.draft = { id: draftId, isNew: !id, images: (w ? w.images || [] : []).map(x => ({ ...x })), original: (w ? w.images || [] : []).map(x => x.id), added: [], busy: 0, saved: false };
+  }
+  const artistId = w ? w.artistId : (presetArtist || artists[0].id);
+  const v = w || {};
+  const f = (k, label, extra = "") => `<div class="field"><label for="f-${k}">${label}</label><input id="f-${k}" name="${k}" value="${esc(v[k] || "")}" ${extra}></div>`;
+  const cancelTo = id ? `#/artwork/${id}` : `#/artist/${artistId}`;
+  return {
+    title: id ? "Edit artwork" : "New artwork",
+    left: `<button class="ibtn" data-back="${cancelTo}">Cancel</button>`,
+    right: `<button class="ibtn strong" form="wf" type="submit" id="save-top">Save</button>`,
+    body: `<form id="wf" class="form" autocomplete="off">
+      <div class="group"><h3>Photos</h3><div class="imgs" id="imgs"></div>
+        <p class="hint">The first photo is the main image. Tap ★ to make a photo the main one. You can add several views of the same artwork.</p></div>
+      <div class="group">
+        <div class="field"><label for="f-artistId">Artist</label><select id="f-artistId" name="artistId">${artists.map(a => `<option value="${a.id}" ${a.id === artistId ? "selected" : ""}>${esc(a.name)}</option>`).join("")}</select></div>
+        ${f("title", "Title", 'autocapitalize="words" placeholder="Untitled"')}
+        <div class="two">${f("year", "Date", 'placeholder="e.g. 1931 or c.1890"')}${f("dimensions", "Size", 'placeholder="e.g. 60 × 80 cm"')}</div>
+        ${f("medium", "Medium", 'placeholder="e.g. Oil on canvas"')}
+        ${f("location", "Where", 'placeholder="Collection, gallery or where you saw it"')}
+      </div>
+      <div class="group"><div class="field" style="margin:0"><label for="f-notes">Notes</label><textarea id="f-notes" name="notes" rows="5">${esc(v.notes || "")}</textarea></div></div>
+      <button class="btn block" type="submit" id="save-bottom">Save artwork</button>
+      ${id ? `<div class="danger-zone"><button type="button" class="btn danger" id="del">Delete artwork</button></div>` : ""}
+    </form>`,
+    after() {
+      renderImgs();
+      const form = document.getElementById("wf");
+      form.addEventListener("submit", async e => {
+        e.preventDefault();
+        const D = S.draft;
+        if (D.busy) { toast("Please wait for photos to finish uploading"); return; }
+        const d = clean(Object.fromEntries(new FormData(form)));
+        const images = D.images.filter(x => x.url && !x.failed).map(({ id, url, thumbUrl, path, thumbPath, w, h }) => ({ id, url, thumbUrl, path, thumbPath, w, h }));
+        const obj = { id: D.id, ...d, images };
+        const keep = new Set(images.map(x => x.id));
+        const gone = (w ? w.images || [] : []).filter(x => !keep.has(x.id));
+        D.saved = true;
+        try {
+          const p = store.save("artworks", obj, D.isNew);
+          S.draft = null;
+          go(`#/artwork/${obj.id}`, { replace: true });
+          await p;
+          for (const im of gone) { store.deleteFile(im.path); store.deleteFile(im.thumbPath); }
+        } catch (err) { console.error(err); toast("Couldn't save — " + (err.code || err.message)); }
+      });
+      const del = document.getElementById("del");
+      del && del.addEventListener("click", async () => {
+        if (!confirm(`Delete “${w.title || "Untitled"}” and its photos? This can't be undone.`)) return;
+        const D = S.draft; D.saved = true;
+        try {
+          for (const im of D.added) { store.deleteFile(im.path); store.deleteFile(im.thumbPath); }
+          S.draft = null;
+          await deleteArtwork(w); toast("Artwork deleted"); go(`#/artist/${w.artistId}`, { replace: true });
+        } catch (err) { console.error(err); toast("Couldn't delete — " + (err.code || err.message)); }
+      });
+    },
+  };
+}
+
+function renderImgs() {
+  const box = document.getElementById("imgs"); if (!box || !S.draft) return;
+  const D = S.draft;
+  box.innerHTML = D.images.map((im, i) => `<div class="img-item ${im.uploading ? "busy" : ""}" data-id="${im.id}">
+      <img src="${esc(im.local || im.thumbUrl || im.url)}" alt="">
+      ${!im.uploading ? `<button type="button" class="x" data-act="rm" aria-label="Remove photo">${I.x}</button>` : ""}
+      ${i === 0 && !im.uploading ? `<span class="main-badge">Main</span>` : ""}
+      ${i > 0 && !im.uploading ? `<button type="button" class="star" data-act="main" aria-label="Make main photo">${I.star}</button>` : ""}
+      ${im.uploading ? `<div class="prog"><i style="width:${Math.round((im.progress || 0) * 100)}%"></i></div>` : ""}
+    </div>`).join("") +
+    `<label class="add-img">${I.camera}<span>Add photos</span><input type="file" accept="image/*" multiple hidden id="pick"></label>`;
+  document.getElementById("pick").addEventListener("change", e => { addFiles([...e.target.files]); e.target.value = ""; });
+  box.onclick = e => {
+    const b = e.target.closest("[data-act]"); if (!b) return;
+    const id = b.closest(".img-item").dataset.id;
+    const i = D.images.findIndex(x => x.id === id); if (i < 0) return;
+    if (b.dataset.act === "main") { const [x] = D.images.splice(i, 1); D.images.unshift(x); }
+    if (b.dataset.act === "rm") {
+      const [x] = D.images.splice(i, 1);
+      if (D.added.includes(x)) { store.deleteFile(x.path); store.deleteFile(x.thumbPath); D.added = D.added.filter(y => y !== x); }
+    }
+    renderImgs();
+  };
+  ["save-top", "save-bottom"].forEach(s => { const el = document.getElementById(s); el && (el.disabled = !!D.busy); });
+}
+
+async function addFiles(files) {
+  const D = S.draft; if (!D) return;
+  const items = files.map(file => ({ id: newId(), file, local: URL.createObjectURL(file), uploading: true, progress: 0 }));
+  D.images.push(...items); D.busy += items.length; renderImgs();
+  for (const im of items) {
+    try {
+      const bmp = await decodeImage(im.file);
+      const main = await toJpeg(bmp, MAIN_EDGE, MAIN_QUALITY);
+      const th = await toJpeg(bmp, THUMB_EDGE, THUMB_QUALITY);
+      bmp.close && bmp.close();
+      const bar = () => { const el = document.querySelector(`.img-item[data-id="${im.id}"] .prog i`); el && (el.style.width = Math.round(im.progress * 100) + "%"); };
+      const up1 = await store.upload(`artworks/${D.id}/${im.id}.jpg`, main.blob, p => { im.progress = p * 0.85; bar(); });
+      const up2 = await store.upload(`artworks/${D.id}/${im.id}_t.jpg`, th.blob, p => { im.progress = 0.85 + p * 0.15; bar(); });
+      Object.assign(im, { url: up1.url, path: up1.path, thumbUrl: up2.url, thumbPath: up2.path, w: main.w, h: main.h, uploading: false });
+      delete im.file;
+      if (S.draft === D) D.added.push(im); else { store.deleteFile(im.path); store.deleteFile(im.thumbPath); }
+    } catch (err) {
+      console.error(err);
+      D.images = D.images.filter(x => x !== im);
+      toast("Couldn't add a photo — " + (err.code || err.message));
+    }
+    D.busy--; if (S.draft === D) renderImgs();
+  }
+}
+
+function discardDraft() {
+  const D = S.draft; S.draft = null;
+  if (!D || D.saved) return;
+  for (const im of D.added) { store.deleteFile(im.path); store.deleteFile(im.thumbPath); }
+}
+
+/* ---------- sign in ---------- */
+let authMode = "in";
+function renderAuth() {
+  document.body.classList.remove("has-tabs");
+  const up = authMode === "up";
+  app.innerHTML = `<div class="auth"><h1 class="display">My Gallery</h1><p class="tag">Your personal collection of artworks</p>
+    <form id="lf">
+      <div class="field"><label for="em">Email</label><input id="em" type="email" autocomplete="email" required></div>
+      <div class="field"><label for="pw">Password</label><input id="pw" type="password" autocomplete="${up ? "new-password" : "current-password"}" minlength="6" required></div>
+      <div class="err" id="err"></div>
+      <button class="btn block" type="submit">${up ? "Create account" : "Sign in"}</button>
+    </form>
+    <div class="switch">${up ? `Already have an account? <button id="sw">Sign in</button>` : `New here? <button id="sw">Create an account</button>`}</div>
+    ${up ? "" : `<div class="switch"><button id="fp" style="color:var(--muted);font-weight:400">Forgot password?</button></div>`}</div>`;
+  const err = document.getElementById("err");
+  const msg = e => ({
+    "auth/invalid-credential": "Email or password is incorrect.", "auth/wrong-password": "Email or password is incorrect.",
+    "auth/user-not-found": "No account with that email.", "auth/email-already-in-use": "An account with that email already exists — sign in instead.",
+    "auth/weak-password": "Please use at least 6 characters.", "auth/invalid-email": "That email address doesn't look right.",
+    "auth/too-many-requests": "Too many attempts. Please wait a moment.", "auth/network-request-failed": "No internet connection.",
+  }[e.code] || e.message);
+  document.getElementById("lf").addEventListener("submit", async e => {
+    e.preventDefault(); err.textContent = "";
+    const em = document.getElementById("em").value.trim(), pw = document.getElementById("pw").value;
+    try { await (up ? store.signUp(em, pw) : store.signIn(em, pw)); } catch (x) { err.textContent = msg(x); }
+  });
+  document.getElementById("sw").onclick = () => { authMode = up ? "in" : "up"; renderAuth(); };
+  const fp = document.getElementById("fp");
+  fp && (fp.onclick = async () => {
+    const em = document.getElementById("em").value.trim();
+    if (!em) { err.textContent = "Type your email above, then tap “Forgot password?” again."; return; }
+    try { await store.reset(em); toast("Password reset email sent"); } catch (x) { err.textContent = msg(x); }
+  });
+}
+
+/* =====================================================================
+   6. START
+   ===================================================================== */
+(async function start() {
+  try { store = DEMO ? demoStore() : await firebaseStore(); }
+  catch (e) { console.error(e); app.innerHTML = `<div class="empty"><h2 class="display">Couldn't start</h2><p>Check your internet connection and the Firebase settings in index.html.</p></div>`; return; }
+  stack.push(location.hash || "#/");
+  let first = true;
+  store.onAuth(user => {
+    const changed = first || (user && user.uid) !== (S.user && S.user.uid);
+    first = false;
+    S.user = user;
+    if (!changed) return;
+    store.unsubscribe();
+    S.artists = new Map(); S.artworks = new Map(); S.loaded = false;
+    if (user) {
+      render();
+      store.subscribe(dataChanged, err => { console.error(err); toast("Couldn't load your gallery — " + (err.code || err.message), 6000); });
+    } else render();
+  });
+})();
+</script>
+</body>
+</html>
