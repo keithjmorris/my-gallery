@@ -213,6 +213,27 @@ main.flush { padding-left: 0; padding-right: 0; }
 .add-img { aspect-ratio: 1; border: 1.5px dashed var(--line); border-radius: 8px; display: grid; place-items: center; text-align: center; color: var(--accent); font-size: 13px; font-weight: 500; cursor: pointer; padding: 6px; }
 .add-img svg { width: 26px; height: 26px; margin: 0 auto 2px; display: block; }
 .danger-zone { margin: 26px 0 0; text-align: center; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; background: var(--surface); }
+.field .seg label { margin: 0; font-size: inherit; color: inherit; position: relative; }
+.seg input { position: absolute; opacity: 0; pointer-events: none; }
+.seg span { display: block; text-align: center; padding: 11px 6px; font-size: 15px; font-weight: 500; color: var(--muted); cursor: pointer; }
+.seg label + label span { border-left: 1px solid var(--line); }
+.seg input:checked + span { background: var(--accent); color: var(--accent-ink); }
+.seg input:focus-visible + span { outline: 2px solid var(--accent); outline-offset: -2px; }
+.seg.need { border-color: var(--danger); box-shadow: 0 0 0 1px var(--danger); }
+
+/* ---------- ownership ---------- */
+.own-tag { margin: 0 0 6px; font-size: 12px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--accent); }
+.own-tag.seen { color: var(--muted); }
+.own-ask { margin: 18px 0 0; padding: 14px; border: 1px dashed var(--accent); border-radius: var(--r); background: var(--surface); }
+.own-ask p { margin: 0 0 10px; font-weight: 500; }
+.own-ask .btns { display: flex; gap: 8px; flex-wrap: wrap; }
+.own-ask .left { margin: 10px 0 0; font-size: 13px; color: var(--muted); }
+.next-sort { display: inline-flex; margin-top: 14px; font-weight: 500; color: var(--accent); }
+.pill { display: inline-block; font-size: 10px; font-weight: 600; letter-spacing: .05em; text-transform: uppercase; border: 1px solid var(--line); color: var(--muted); border-radius: 4px; padding: 0 5px; margin-left: 6px; vertical-align: 1px; }
+.chips + .chips { padding-top: 0; }
+.chip .n { color: var(--muted); margin-left: 4px; }
+.chip.on .n { color: inherit; opacity: .7; }
 
 /* ---------- auth ---------- */
 .auth { max-width: 380px; margin: 0 auto; padding: calc(var(--st) + 10vh) 24px 40px; }
@@ -251,7 +272,7 @@ main.flush { padding-left: 0; padding-right: 0; }
    security rules in firestore.rules and storage.rules.
    ===================================================================== */
 const FIREBASE_CONFIG = {
-   apiKey: "AIzaSyBDNgfyoMcJ_7-4_ZRKCmuCCnLS218ovEk",
+  apiKey: "AIzaSyBDNgfyoMcJ_7-4_ZRKCmuCCnLS218ovEk",
   authDomain: "my-gallery-4d3ec.firebaseapp.com",
   projectId: "my-gallery-4d3ec",
   storageBucket: "my-gallery-4d3ec.firebasestorage.app",
@@ -272,6 +293,8 @@ const S = {
   user: null, loaded: false,
   artists: new Map(), artworks: new Map(),
   filter: "all",
+  own: "all",            // gallery filter: all | mine | seen | unset
+  justSorted: null,
   draft: null,           // artwork being edited
 };
 
@@ -325,6 +348,11 @@ function lifeDates(a) {
   if (a.died) return `d. ${a.died}`;
   return "";
 }
+const OWN = { mine: "In my collection", seen: "Seen elsewhere" };
+const ownOf = w => (w.ownership === "mine" || w.ownership === "seen") ? w.ownership : "unset";
+const whereLabel = o => o === "mine" ? "Location" : o === "seen" ? "Seen at" : "Where";
+const unsorted = () => allWorksSorted().filter(w => ownOf(w) === "unset");
+const seenPill = w => ownOf(w) === "seen" ? '<span class="pill">Seen</span>' : "";
 const artistMeta = a => [lifeDates(a), a.nationality].filter(Boolean).join(" · ");
 const initials = name => (name || "?").split(/\s+/).filter(Boolean).map(s => s[0]).slice(0, 2).join("").toUpperCase();
 
@@ -432,12 +460,12 @@ async function seedDemo() {
   ];
   artists.forEach(a => S.artists.set(a.id, a));
   const works = [
-    { artistId: "a1", title: "Stanage Edge, Evening", year: "1998", medium: "Oil on canvas", dimensions: "90 × 120 cm", location: "Private collection", images: [[1600, 1200, 3], [1200, 1500, 7]] },
+    { artistId: "a1", title: "Stanage Edge, Evening", year: "1998", medium: "Oil on canvas", dimensions: "90 × 120 cm", ownership: "mine", location: "Living room", images: [[1600, 1200, 3], [1200, 1500, 7]] },
     { artistId: "a1", title: "Winter Light, Hathersage", year: "2004", medium: "Oil on board", dimensions: "40 × 50 cm", images: [[1500, 1200, 11]] },
     { artistId: "a1", title: "Ladybower Study", year: "2012", medium: "Watercolour", images: [[1200, 1700, 19], [1700, 1200, 23], [1400, 1400, 29]] },
-    { artistId: "a2", title: "Composition in Ochre", year: "1974", medium: "Acrylic on canvas", dimensions: "150 × 150 cm", location: "Museu de Arte, Lisbon", images: [[1400, 1400, 31]] },
-    { artistId: "a2", title: "Tide", year: "1989", medium: "Oil on linen", images: [[2000, 1000, 37]] },
-    { artistId: "a3", title: "Harmattan I", year: "2019", medium: "Ink and gouache on paper", dimensions: "200 × 140 cm", notes: "Seen at the Millennium Gallery, Sheffield.", images: [[1100, 1600, 41], [1600, 1100, 43]] },
+    { artistId: "a2", title: "Composition in Ochre", year: "1974", medium: "Acrylic on canvas", dimensions: "150 × 150 cm", ownership: "seen", location: "Museu de Arte, Lisbon", images: [[1400, 1400, 31]] },
+    { artistId: "a2", title: "Tide", year: "1989", medium: "Oil on linen", ownership: "mine", images: [[2000, 1000, 37]] },
+    { artistId: "a3", title: "Harmattan I", year: "2019", medium: "Ink and gouache on paper", dimensions: "200 × 140 cm", ownership: "seen", location: "Millennium Gallery, Sheffield", images: [[1100, 1600, 41], [1600, 1100, 43]] },
   ];
   for (const w of works) {
     const images = []; for (const [a, b, s] of w.images) images.push(await img(a, b, s));
@@ -589,7 +617,7 @@ function viewArtist(id) {
   const tiles = works.map(w => {
     const c = cover(w);
     return `<a class="tile" href="#/artwork/${w.id}"><div class="tile-img">${c ? `<img src="${esc(c.thumbUrl || c.url)}" alt="" loading="lazy">` : `<span class="noimg">No photo</span>`}</div>
-      <div class="tile-cap"><b>${esc(w.title || "Untitled")}</b><span>${esc(w.year || "")}</span></div></a>`;
+      <div class="tile-cap"><b>${esc(w.title || "Untitled")}</b><span>${esc(w.year || "")}${seenPill(w)}</span></div></a>`;
   }).join("");
   return {
     title: "", left: backBtn("Artists", "#/artists"),
@@ -620,7 +648,13 @@ function viewArtwork(id) {
        <span class="zoom-hint">${I.zoom}Tap to zoom${imgs.length > 1 ? " · swipe for more views" : ""}</span></div>`
     : `<div class="stage-wrap"><div class="stage-empty">No photos yet.<br><br><a class="btn small" href="#/artwork/${id}/edit">${I.camera} Add photos</a></div></div>`;
 
-  const facts = [["Date", w.year], ["Medium", w.medium], ["Size", w.dimensions], ["Where", w.location]].filter(f => f[1]);
+  const own = ownOf(w);
+  const facts = [["Date", w.year], ["Medium", w.medium], ["Size", w.dimensions], [whereLabel(own), w.location]].filter(f => f[1]);
+  const left = unsorted().filter(x => x.id !== id);
+  const ask = own === "unset" ? `<div class="own-ask" id="own-ask"><p>Is this artwork in your collection?</p>
+      <div class="btns"><button class="btn small" data-own="mine">Yes, it's mine</button><button class="btn small ghost" data-own="seen">No, seen elsewhere</button></div>
+      ${left.length ? `<p class="left">${left.length} other artwork${left.length === 1 ? "" : "s"} still to sort</p>` : ""}</div>`
+    : (S.justSorted === id && left.length ? `<a class="next-sort" href="#/artwork/${left[0].id}" data-replace>Next artwork to sort (${left.length} left) ›</a>` : "");
   const strip = sib.length > 1 ? `<section class="more">
       <div class="more-h"><span class="eyebrow">More by ${esc(a.name)}</span><span class="muted" style="font-size:13px">${pos + 1} of ${sib.length}</span></div>
       <div class="strip" id="strip">${sib.map(x => { const c = cover(x); return `<a href="#/artwork/${x.id}" data-replace class="${x.id === id ? "on" : ""}">
@@ -635,13 +669,23 @@ function viewArtwork(id) {
     left: fromGallery ? backBtn("Gallery", "#/gallery") : backBtn(a.name, w.artistId ? `#/artist/${w.artistId}` : "#/artists"),
     right: `<a class="ibtn" href="#/artwork/${id}/edit">Edit</a>`,
     body: `${stage}
-      <section class="aw-info"><h2 class="display">${esc(w.title || "Untitled")}</h2>
+      <section class="aw-info">${own !== "unset" ? `<p class="own-tag ${own}">${OWN[own]}</p>` : ""}<h2 class="display">${esc(w.title || "Untitled")}</h2>
         <p class="aw-artist"><a href="#/artist/${w.artistId}">${esc(a.name)}</a>${artistMeta(a) ? ` <span class="muted">(${esc(artistMeta(a))})</span>` : ""}</p>
         ${facts.length ? `<dl class="facts">${facts.map(([k, v]) => `<dt>${k}</dt><dd>${esc(v)}</dd>`).join("")}</dl>` : ""}
-        ${w.notes ? `<p class="notes">${esc(w.notes)}</p>` : ""}</section>
+        ${w.notes ? `<p class="notes">${esc(w.notes)}</p>` : ""}
+        ${ask}</section>
       ${strip}
       ${a.bio ? `<div class="about"><details><summary>About ${esc(a.name)}</summary><p class="bio">${esc(a.bio)}</p></details></div>` : ""}`,
     after() {
+      if (S.justSorted && S.justSorted !== id) S.justSorted = null;
+      const askBox = document.getElementById("own-ask");
+      askBox && askBox.addEventListener("click", async e => {
+        const b = e.target.closest("[data-own]"); if (!b) return;
+        askBox.querySelectorAll("button").forEach(x => x.disabled = true);
+        S.justSorted = id;
+        try { await store.save("artworks", { id, ownership: b.dataset.own }, false); }
+        catch (err) { console.error(err); toast("Couldn't save — " + (err.code || err.message)); S.justSorted = null; render(); }
+      });
       const slides = document.getElementById("slides");
       const strip = document.getElementById("strip");
       if (strip) { const on = strip.querySelector(".on"); on && (strip.scrollLeft = on.offsetLeft - strip.clientWidth / 2 + 38); }
@@ -679,23 +723,31 @@ async function openZoom(imgs, index, onChange) {
 function viewGallery() {
   const artists = artistsSorted().filter(a => worksOf(a.id).length);
   if (S.filter !== "all" && !S.artists.has(S.filter)) S.filter = "all";
-  const works = allWorksSorted().filter(w => S.filter === "all" || w.artistId === S.filter);
-  const chips = `<div class="chips" id="chips"><button class="chip ${S.filter === "all" ? "on" : ""}" data-f="all">All</button>${artists.map(a =>
+  const all = allWorksSorted();
+  const n = { mine: 0, seen: 0, unset: 0 }; all.forEach(w => n[ownOf(w)]++);
+  if (S.own === "unset" && !n.unset) S.own = "all";
+  const works = all.filter(w => (S.own === "all" || ownOf(w) === S.own) && (S.filter === "all" || w.artistId === S.filter));
+  const ownChips = `<div class="chips" id="own-chips">${[["all", "Everything", all.length], ["mine", "My collection", n.mine], ["seen", "Seen elsewhere", n.seen]]
+      .concat(n.unset ? [["unset", "To sort", n.unset]] : [])
+      .map(([k, label, c]) => `<button class="chip ${S.own === k ? "on" : ""}" data-o="${k}">${label}<span class="n">${c}</span></button>`).join("")}</div>`;
+  const chips = ownChips + `<div class="chips" id="chips"><button class="chip ${S.filter === "all" ? "on" : ""}" data-f="all">All</button>${artists.map(a =>
     `<button class="chip ${S.filter === a.id ? "on" : ""}" data-f="${a.id}">${esc(a.name)}</button>`).join("")}</div>`;
   const items = works.map(w => {
     const c = cover(w), a = S.artists.get(w.artistId);
     return `<a class="m-item" href="#/artwork/${w.id}">${c ? `<img src="${esc(c.thumbUrl || c.url)}" alt="" loading="lazy" width="${c.w || 4}" height="${c.h || 3}">` : `<div class="noimg">No photo</div>`}
-      <div class="m-cap"><b>${esc(w.title || "Untitled")}</b><span>${esc(a ? a.name : "")}${w.year ? ", " + esc(w.year) : ""}</span></div></a>`;
+      <div class="m-cap"><b>${esc(w.title || "Untitled")}</b><span>${esc(a ? a.name : "")}${w.year ? ", " + esc(w.year) : ""}</span>${S.own === "all" ? seenPill(w) : ""}</div></a>`;
   }).join("");
   return {
     tab: "gallery", title: "", mainClass: "wide",
     left: `<span class="eyebrow" style="padding-left:8px">${S.artworks.size} artwork${S.artworks.size === 1 ? "" : "s"}</span>`,
     right: `<a class="ibtn" href="#/account" aria-label="Account">${I.user}</a>`,
-    body: `<h2 class="display page-title">Gallery</h2>${S.artworks.size ? chips + `<div class="masonry">${items}</div>`
+    body: `<h2 class="display page-title">Gallery</h2>${S.artworks.size ? chips + (works.length ? `<div class="masonry">${items}</div>` : `<div class="empty" style="padding:40px 10px"><p>Nothing matches these filters.</p></div>`)
       : `<div class="empty"><p>Artworks you add will appear here, all together.</p><a class="btn" href="#/artists">Go to Artists</a></div>`}`,
     after() {
       const ch = document.getElementById("chips");
       ch && ch.addEventListener("click", e => { const b = e.target.closest("[data-f]"); if (!b) return; S.filter = b.dataset.f; const x = ch.scrollLeft; render(); document.getElementById("chips").scrollLeft = x; });
+      const oc = document.getElementById("own-chips");
+      oc && oc.addEventListener("click", e => { const b = e.target.closest("[data-o]"); if (!b) return; S.own = b.dataset.o; const x = oc.scrollLeft; render(); document.getElementById("own-chips").scrollLeft = x; });
     },
   };
 }
@@ -793,7 +845,10 @@ function viewArtworkForm(id, presetArtist) {
         ${f("title", "Title", 'autocapitalize="words" placeholder="Untitled"')}
         <div class="two">${f("year", "Date", 'placeholder="e.g. 1931 or c.1890"')}${f("dimensions", "Size", 'placeholder="e.g. 60 × 80 cm"')}</div>
         ${f("medium", "Medium", 'placeholder="e.g. Oil on canvas"')}
-        ${f("location", "Where", 'placeholder="Collection, gallery or where you saw it"')}
+        <div class="field"><label>This artwork is…</label><div class="seg" id="own-seg">
+          <label><input type="radio" name="ownership" value="mine" ${v.ownership === "mine" ? "checked" : ""}><span>In my collection</span></label>
+          <label><input type="radio" name="ownership" value="seen" ${v.ownership === "seen" ? "checked" : ""}><span>Seen elsewhere</span></label></div></div>
+        <div class="field"><label for="f-location" id="loc-label">${whereLabel(ownOf(v))}</label><input id="f-location" name="location" value="${esc(v.location || "")}"></div>
       </div>
       <div class="group"><div class="field" style="margin:0"><label for="f-notes">Notes</label><textarea id="f-notes" name="notes" rows="5">${esc(v.notes || "")}</textarea></div></div>
       <button class="btn block" type="submit" id="save-bottom">Save artwork</button>
@@ -802,11 +857,17 @@ function viewArtworkForm(id, presetArtist) {
     after() {
       renderImgs();
       const form = document.getElementById("wf");
+      const seg = document.getElementById("own-seg"), loc = document.getElementById("f-location");
+      const ph = { mine: "e.g. Living room, or where you bought it", seen: "Gallery, museum or exhibition", unset: "Choose one of the options above first" };
+      const syncOwn = () => { const o = (form.querySelector("input[name=ownership]:checked") || {}).value || "unset";
+        document.getElementById("loc-label").textContent = whereLabel(o); loc.placeholder = ph[o]; if (o !== "unset") seg.classList.remove("need"); };
+      seg.addEventListener("change", syncOwn); syncOwn();
       form.addEventListener("submit", async e => {
         e.preventDefault();
         const D = S.draft;
         if (D.busy) { toast("Please wait for photos to finish uploading"); return; }
         const d = clean(Object.fromEntries(new FormData(form)));
+        if (!d.ownership) { seg.classList.add("need"); seg.scrollIntoView({ behavior: "smooth", block: "center" }); toast("Please choose: in your collection, or seen elsewhere"); return; }
         const images = D.images.filter(x => x.url && !x.failed).map(({ id, url, thumbUrl, path, thumbPath, w, h }) => ({ id, url, thumbUrl, path, thumbPath, w, h }));
         const obj = { id: D.id, ...d, images };
         const keep = new Set(images.map(x => x.id));
